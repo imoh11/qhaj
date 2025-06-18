@@ -1,10 +1,14 @@
 const COMPLAINTS_WEBHOOK_URL = 'https://hook.us2.make.com/4ij8kumta41ozellaauixdc25zm7i27k';
+const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz6T1Q-joOQrH3i4y7LP5UyuQN20aSryQmnjEOfA7BqPsGtuH-FaKUVcsUwjVYTb0KCcA/exec'; // استبدل هذا بالرابط الخاص بك!
 
 document.addEventListener('DOMContentLoaded', function() {
-    const fixedNavBarHeight = document.querySelector('.fixed-nav-bar').offsetHeight; // نحصل على ارتفاع الشريط الثابت ديناميكيًا
-    const scrollOffset = fixedNavBarHeight + 20; // إضافة 20 بكسل إضافية كهامش علوي بعد الشريط
+    const fixedNavBar = document.querySelector('.fixed-nav-bar');
+    let fixedNavBarHeight = 0;
+    if (fixedNavBar) {
+        fixedNavBarHeight = fixedNavBar.offsetHeight;
+    }
+    const scrollOffset = fixedNavBarHeight + 20;
 
-    // Smooth scrolling for navigation links
     document.querySelectorAll('.nav-link').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             e.preventDefault();
@@ -23,25 +27,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Function to update active link on scroll
     const sections = document.querySelectorAll('.info-card');
     const navLinks = document.querySelectorAll('.nav-list .nav-link');
-    // استخدم نفس scrollOffset لتحديد القسم النشط بشكل صحيح
-    // const offset = 120; // لم نعد بحاجة لهذا المتغير بشكل مباشر هنا
 
     function updateActiveLink() {
         let currentActive = null;
-
         sections.forEach(section => {
             const sectionTop = section.offsetTop;
             const sectionHeight = section.clientHeight;
-
-            // Check if the section is within the viewport, considering the scrollOffset
             if (pageYOffset >= sectionTop - scrollOffset && pageYOffset < sectionTop + sectionHeight - scrollOffset) {
                 currentActive = section.getAttribute('id');
             }
         });
-
         navLinks.forEach(link => {
             link.classList.remove('active-section');
             if (link.getAttribute('href').includes(currentActive)) {
@@ -50,14 +47,167 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Initial call to set active link on page load
     updateActiveLink();
-
-    // Add scroll event listener
     window.addEventListener('scroll', updateActiveLink);
 
+    // --- وظيفة جلب البيانات وتحديث الواجهة ---
+    async function fetchAndRenderHajjData() {
+        try {
+            const response = await fetch(GOOGLE_SHEETS_WEB_APP_URL);
+            const data = await response.json();
+            console.log("البيانات المستلمة من الشيت:", data); // للتأكد من استلام البيانات
 
-    // Complaint Form Submission
+            // 1. تحديث قسم المكتب الرئيسي
+            if (data.office) {
+                const officeCard = document.querySelector('#main-office .contact-list-item');
+                if (officeCard) {
+                    officeCard.querySelector('.name-label').innerHTML = `<i class="fas fa-city"></i> ${data.office.المدينة}`;
+                    officeCard.querySelector('.contact-action-btn.call').href = `tel:${data.office.هاتف_المكتب}`;
+                    officeCard.querySelector('.contact-action-btn.whatsapp').href = data.office.واتساب_المكتب;
+                    officeCard.querySelector('.contact-action-btn.location').href = data.office.رابط_الموقع;
+                }
+            }
+
+            // 2. تحديث قسم نقاط التجمع والانطلاق
+            if (data.gatherings && data.gatherings.length > 0) {
+                const gatheringsList = document.querySelector('#gathering-points .contact-list');
+                gatheringsList.innerHTML = ''; // تفريغ القائمة الحالية
+                data.gatherings.forEach(item => {
+                    const listItem = `
+                        <li class="contact-list-item">
+                            <span class="name-label"><i class="fas fa-bus-alt"></i> ${item.اسم_التجمع}</span>
+                            <div class="contact-actions">
+                                <a class="contact-action-btn call" href="tel:${item.هاتف_التجمع}"><i class="fas fa-phone"></i></a>
+                                <a class="contact-action-btn whatsapp" href="${item.واتساب_التجمع}" target="_blank"><i class="fab fa-whatsapp"></i></a>
+                                <a class="contact-action-btn location" href="${item.رابط_الموقع}" target="_blank"><i class="fas fa-map-marker-alt"></i></a>
+                            </div>
+                        </li>
+                    `;
+                    gatheringsList.insertAdjacentHTML('beforeend', listItem);
+                });
+            }
+
+            // 3. تحديث قسم المخيمات
+            if (data.camps && data.camps.length > 0) {
+                const campsList = document.querySelector('#camps .contact-list');
+                campsList.innerHTML = '';
+                data.camps.forEach(item => {
+                    const listItem = `
+                        <li class="contact-list-item">
+                            <span class="name-label"><i class="fas fa-bed"></i> ${item.اسم_المخيم}</span>
+                            <div class="contact-actions">
+                                <a class="contact-action-btn call" href="tel:${item.هاتف_المخيم}"><i class="fas fa-phone"></i></a>
+                                <a class="contact-action-btn whatsapp" href="${item.واتساب_المخيم}" target="_blank"><i class="fab fa-whatsapp"></i></a>
+                                <a class="contact-action-btn location" href="${item.رابط_الموقع}" target="_blank"><i class="fas fa-map-marker-alt"></i></a>
+                            </div>
+                        </li>
+                    `;
+                    campsList.insertAdjacentHTML('beforeend', listItem);
+                });
+            }
+
+            // 4. تحديث قسم المشرفين
+            if (data.supervisors && data.supervisors.length > 0) {
+                const supervisorsList = document.querySelector('#supervisors .contact-list');
+                supervisorsList.innerHTML = '';
+                data.supervisors.forEach(item => {
+                    const listItem = `
+                        <li class="contact-list-item">
+                            <span class="name-label"><i class="fas fa-bus"></i> ${item.الباص_والمشرف}</span>
+                            <div class="contact-actions">
+                                <a class="contact-action-btn call" href="tel:${item.هاتف_المشرف}"><i class="fas fa-phone"></i></a>
+                                <a class="contact-action-btn whatsapp" href="${item.واتساب_المشرف}" target="_blank"><i class="fab fa-whatsapp"></i></a>
+                            </div>
+                        </li>
+                    `;
+                    supervisorsList.insertAdjacentHTML('beforeend', listItem);
+                });
+            }
+
+            // 5. تحديث قسم أوقات التحرك والتفويج
+            if (data.movementTimes && data.movementTimes.length > 0) {
+                const movementTimesCard = document.querySelector('#movement-times');
+                const movementTimesContainer = movementTimesCard.querySelector('.info-card-title').nextElementSibling; // الحاوية بعد العنوان
+                movementTimesContainer.innerHTML = ''; // تفريغ المحتوى القديم
+                data.movementTimes.forEach(item => {
+                    const pathItem = `
+                        <div class="path-item">
+                            <div class="path-route">
+                                <i class="fas fa-bus place-icon"></i> <span>${item.من_المكان}</span>
+                                <i class="fas fa-arrow-left arrow-icon arrow-green"></i>
+                                <span>${item.إلى_المكان}</span> <i class="fas fa-mosque place-icon"></i>
+                            </div>
+                            <div class="path-details">
+                                <span class="path-detail-item-info date-info">
+                                    <i class="fas fa-calendar-alt"></i> <span>التاريخ:</span> ${item.تاريخ_التحرك}
+                                </span>
+                                <span class="path-detail-item-info time-info">
+                                    <i class="fas fa-clock"></i> <span>الوقت:</span> ${item.وقت_التحرك}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                    movementTimesContainer.insertAdjacentHTML('beforeend', pathItem);
+                });
+            }
+
+
+            // 6. تحديث قسم مسارات التنقل بين المشاعر
+            if (data.movementPaths && data.movementPaths.length > 0) {
+                const movementPathsCard = document.querySelector('#movement-paths');
+                const movementPathsContainer = movementPathsCard.querySelector('.info-card-title').nextElementSibling; // الحاوية بعد العنوان
+                movementPathsContainer.innerHTML = ''; // تفريغ المحتوى القديم
+                data.movementPaths.forEach(item => {
+                    const pathItem = `
+                        <div class="path-item">
+                            <div class="path-route">
+                                <i class="fas fa-campground place-icon"></i> <span>${item.من_المكان}</span>
+                                <i class="fas fa-arrow-left arrow-icon arrow-${item.نوع_المسار === 'أحمر' ? 'red' : 'green'}"></i>
+                                <span>${item.إلى_المكان}</span> <i class="fas fa-train place-icon"></i>
+                            </div>
+                            <div class="path-details">
+                                <span class="path-detail-item-info location-link">
+                                    <a href="${item.رابط_الخريطة}" target="_blank"><i class="fas fa-map-marker-alt"></i> <span>طول المسار:</span> ${item.طول_المسار}</a>
+                                </span>
+                                <span class="path-detail-item-info time-info">
+                                    <a href="${item.رابط_الخريطة}" target="_blank"><i class="fas fa-clock"></i> <span>الوقت المتوقع:</span> ${item.الوقت_المتوقع}</a>
+                                </span>
+                            </div>
+                            <a class="path-status-badge ${item.نوع_المسار === 'أحمر' ? 'red-status' : 'green-status'}" href="${item.رابط_الخريطة}" target="_blank" style="text-decoration: none;">المسار ${item.نوع_المسار}: الذهاب ل${item.إلى_المكان}</a>
+                        </div>
+                    `;
+                    movementPathsContainer.insertAdjacentHTML('beforeend', pathItem);
+                });
+            }
+
+            // 7. تحديث قسم الوجبات
+            if (data.meals && data.meals.length > 0) {
+                const mealsTableBody = document.querySelector('#meals .meals-table tbody');
+                if (mealsTableBody) {
+                    mealsTableBody.innerHTML = ''; // تفريغ المحتوى القديم
+
+                    data.meals.forEach(item => {
+                        const row = `
+                            <tr>
+                                <td><i class="fas fa-utensils"></i> ${item.اسم_الوجبة}</td>
+                                <td><i class="fas fa-clock"></i> ${item.وقت_الوجبة_كامل}</td>
+                            </tr>
+                        `;
+                        mealsTableBody.insertAdjacentHTML('beforeend', row);
+                    });
+                }
+            }
+
+
+        } catch (error) {
+            console.error('حدث خطأ أثناء جلب أو عرض البيانات:', error);
+        }
+    }
+
+    // استدعاء الدالة لجلب البيانات وتحديث الواجهة عند تحميل الصفحة
+    fetchAndRenderHajjData();
+
+    // Complaint Form Submission (لم يتغير)
     const complaintForm = document.getElementById('complaintForm');
     const complaintMessageBox = document.getElementById('complaintMessageBox');
     if (complaintForm) {

@@ -11,26 +11,16 @@ const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
 // التحقق من أن المتغيرات الأساسية موجودة عند بدء تشغيل الدالة
 if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
     console.error("خطأ التكوين: AIRTABLE_API_KEY أو AIRTABLE_BASE_ID غير متاحين كمتغيرات بيئة.");
-    // هذا الخطأ سيظهر في سجلات وظيفة Netlify إذا لم يتم تعيين المتغيرات
 }
 
 const AIRTABLE_BASE_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/`;
 
 /**
- * دالة مساعدة لجلب جميع السجلات من جدول Airtable معين، مع معالجة pagination والفرز.
+ * دالة مساعدة لجلب جميع السجلات من جدول Airtable معين، مع معالجة pagination.
  * @param {string} tableName - اسم الجدول في Airtable (مثل "المكتب", "التجمعات").
- * @param {Array<Object>} [sortOptions=[]] - مصفوفة من كائنات الفرز، مثل: [{field: "اسم_العمود", direction: "asc"|"desc"}].
  * @returns {Promise<Array<Object>>} مصفوفة من كائنات الحقول (records.fields).
  */
-async function fetchAllAirtableRecords(tableName, sortOptions = []) {
-    let queryParams = [];
-
-    // إضافة خيارات الفرز إلى queryParams
-    sortOptions.forEach((sort, index) => {
-        queryParams.push(`sort[${index}][field]=${encodeURIComponent(sort.field)}`);
-        queryParams.push(`sort[${index}][direction]=${encodeURIComponent(sort.direction)}`);
-    });
-
+async function fetchAllAirtableRecords(tableName) { // <<-- تم إزالة sortOptions هنا
     const url = `${AIRTABLE_BASE_URL}${encodeURIComponent(tableName)}`;
     const headers = {
         'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
@@ -42,13 +32,8 @@ async function fetchAllAirtableRecords(tableName, sortOptions = []) {
 
     do {
         let paginatedUrl = url;
-        let currentQueryParams = [...queryParams]; // ننسخ queryParams حتى لا نؤثر على التكرارات
         if (offset) {
-            currentQueryParams.push(`offset=${offset}`);
-        }
-
-        if (currentQueryParams.length > 0) {
-            paginatedUrl += `?${currentQueryParams.join('&')}`; // هنا يتم إضافة Query Params
+            paginatedUrl += `?offset=${offset}`;
         }
         
         try {
@@ -62,7 +47,7 @@ async function fetchAllAirtableRecords(tableName, sortOptions = []) {
             offset = data.offset; // إذا كان هناك المزيد من الصفحات، Airtable سيعيد 'offset'
         } catch (fetchError) {
             console.error(`خطأ أثناء جلب البيانات من جدول Airtable (${tableName}): ${fetchError.message}`);
-            throw fetchError; // إعادة إلقاء الخطأ للتعامل معه في الدالة الرئيسية
+            throw fetchError; 
         }
     } while (offset);
 
@@ -100,35 +85,14 @@ exports.handler = async function(event, context) {
     try {
         const finalCombinedData = {}; // هذا الكائن سيحتوي على جميع البيانات المدمجة للواجهة الأمامية
 
-        // --- جلب البيانات الخام من Airtable لكل قسم (مع الفرز) ---
-        // المكتب (لا يوجد فرز، كائن واحد)
+        // --- جلب البيانات الخام من Airtable لكل قسم (بدون فرز) ---
         const rawOfficeRecords = await fetchAllAirtableRecords("المكتب"); // <<-- تأكد من اسم الجدول في Airtable
-
-        // التجمعات (فرز تصاعدي حسب اسم التجمع)
-        const rawGatheringsRecords = await fetchAllAirtableRecords("التجمعات", [{field: "اسم_التجمع", direction: "asc"}]); // <<-- تأكد من اسم الجدول في Airtable
-
-        // المخيمات (فرز تصاعدي حسب اسم المخيم)
-        const rawCampsRecords = await fetchAllAirtableRecords("المخيمات", [{field: "اسم_المخيم", direction: "asc"}]); // <<-- تأكد من اسم الجدول في Airtable
-
-        // المشرفون (فرز تصاعدي حسب الباص والمشرف)
-        const rawSupervisorsRecords = await fetchAllAirtableRecords("المشرفين", [{field: "الباص_والمشرف", direction: "asc"}]); // <<-- تأكد من اسم الجدول في Airtable
-
-        // أوقات التحرك (فرز تصاعدي حسب التاريخ ثم الوقت)
-        // ملاحظة: الفرز النصي (alphabetical) قد لا يكون دقيقاً 100% زمنياً إذا كانت التواريخ والأوقات غير منسقة.
-        // يفضل استخدام حقول Airtable من نوع Date/Time للفرز الزمني الدقيق.
-        const rawMovementTimesRecords = await fetchAllAirtableRecords("أوقات التحرك", [
-            {field: "تاريخ_التحرك", direction: "asc"}, 
-            {field: "وقت_التحرك", direction: "asc"}
-        ]); // <<-- تأكد من اسم الجدول في Airtable
-
-        // مسارات التنقل (فرز تصاعدي حسب من المكان إلى المكان)
-        const rawMovementPathsRecords = await fetchAllAirtableRecords("مسارات التنقل", [
-            {field: "من_المكان_مسار", direction: "asc"}, 
-            {field: "إلى_المكان_مسار", direction: "asc"}
-        ]); // <<-- تأكد من اسم الجدول في Airtable
-
-        // الوجبات (فرز تصاعدي حسب اسم الوجبة)
-        const rawMealsRecords = await fetchAllAirtableRecords("الوجبات", [{field: "اسم_الوجبة", direction: "asc"}]); // <<-- تأكد من اسم الجدول في Airtable
+        const rawGatheringsRecords = await fetchAllAirtableRecords("التجمعات"); // <<-- تأكد من اسم الجدول في Airtable
+        const rawCampsRecords = await fetchAllAirtableRecords("المخيمات"); // <<-- تأكد من اسم الجدول في Airtable
+        const rawSupervisorsRecords = await fetchAllAirtableRecords("المشرفين"); // <<-- تأكد من اسم الجدول في Airtable
+        const rawMovementTimesRecords = await fetchAllAirtableRecords("أوقات التحرك"); // <<-- تأكد من اسم الجدول في Airtable
+        const rawMovementPathsRecords = await fetchAllAirtableRecords("مسارات التنقل"); // <<-- تأكد من اسم الجدول في Airtable
+        const rawMealsRecords = await fetchAllAirtableRecords("الوجبات"); // <<-- تأكد من اسم الجدول في Airtable
 
 
         // --- معالجة وتشكيل البيانات المجمعة ---
@@ -137,21 +101,21 @@ exports.handler = async function(event, context) {
         if (rawOfficeRecords.length > 0) {
             const officeFields = rawOfficeRecords[0]; // نأخذ أول سجل (fields object)
             finalCombinedData.office = {
-                "المدينة": officeFields["المدينة"] || null, // استخدم || null لمعالجة القيم الفارغة بشكل آمن
-                "رابط_الموقع": officeFields["رابط_الموقع_مكتب"] || null, // تحويل الاسم: Airtable's رابط_الموقع_مكتب -> Frontend's رابط_الموقع
+                "المدينة": officeFields["المدينة"] || null, 
+                "رابط_الموقع": officeFields["رابط_الموقع_مكتب"] || null, 
                 "هاتف_المكتب": officeFields["هاتف_المكتب"] || null,
                 "واتساب_المكتب": officeFields["واتساب_المكتب"] || null
             };
         } else {
-            finalCombinedData.office = {}; // لضمان وجود المفتاح ككائن فارغ حتى لو كان الجدول فارغاً
+            finalCombinedData.office = {}; 
         }
 
         // 2. معالجة وتشكيل بيانات الأقسام الأخرى (تتوقع مصفوفة من الكائنات)
         const sectionsConfig = {
             "gatherings": { 
-                fieldMap: { // خريطة لتحويل أسماء حقول Airtable إلى المفاتيح المتوقعة في الواجهة الأمامية
+                fieldMap: {
                     "اسم_التجمع": "اسم_التجمع",
-                    "رابط_الموقع_تجمع": "رابط_الموقع", // تحويل الاسم
+                    "رابط_الموقع_تجمع": "رابط_الموقع", 
                     "هاتف_التجمع": "هاتف_التجمع",
                     "واتساب_التجمع": "واتساب_التجمع"
                 }
@@ -159,7 +123,7 @@ exports.handler = async function(event, context) {
             "camps": { 
                 fieldMap: {
                     "اسم_المخيم": "اسم_المخيم",
-                    "رابط_الموقع_مخيم": "رابط_الموقع", // تحويل الاسم
+                    "رابط_الموقع_مخيم": "رابط_الموقع", 
                     "هاتف_المخيم": "هاتف_المخيم",
                     "واتساب_المخيم": "واتساب_المخيم"
                 }
@@ -173,16 +137,16 @@ exports.handler = async function(event, context) {
             },
             "movementTimes": { 
                 fieldMap: {
-                    "من_المكان_تحرك": "من_المكان", // تحويل الاسم
-                    "إلى_المكان_تحرك": "إلى_المكان", // تحويل الاسم
+                    "من_المكان_تحرك": "من_المكان", 
+                    "إلى_المكان_تحرك": "إلى_المكان", 
                     "تاريخ_التحرك": "تاريخ_التحرك",
                     "وقت_التحرك": "وقت_التحرك"
                 }
             },
             "movementPaths": { 
                 fieldMap: {
-                    "من_المكان_مسار": "من_المكان", // تحويل الاسم
-                    "إلى_المكان_مسار": "إلى_المكان", // تحويل الاسم
+                    "من_المكان_مسار": "من_المكان", 
+                    "إلى_المكان_مسار": "إلى_الممكان", 
                     "طول_المسار": "طول_المسار",
                     "الوقت_المتوقع": "الوقت_المتوقع",
                     "نوع_المسار": "نوع_المسار",
@@ -211,18 +175,16 @@ exports.handler = async function(event, context) {
         for (const sectionKey in sectionsConfig) {
             if (sectionsConfig.hasOwnProperty(sectionKey)) {
                 const config = sectionsConfig[sectionKey];
-                const recordsToProcess = rawDataMap[sectionKey]; // جلب السجلات الخام لهذا القسم
+                const recordsToProcess = rawDataMap[sectionKey]; 
 
                 const transformedRecords = recordsToProcess.map(record => {
                     const newRecord = {};
                     for (const airtableField in config.fieldMap) {
                         const frontendKey = config.fieldMap[airtableField];
-                        // التحقق مما إذا كان الحقل موجودًا في سجل Airtable، وإلا تعيين null
                         newRecord[frontendKey] = record.hasOwnProperty(airtableField) ? record[airtableField] : null;
                     }
                     return newRecord;
                 }).filter(record => {
-                    // إزالة السجلات التي جميع قيمها فارغة أو null أو غير معرفة (لتنظيف البيانات)
                     return Object.values(record).some(val => val !== null && val !== '' && val !== undefined);
                 });
 
@@ -232,20 +194,20 @@ exports.handler = async function(event, context) {
 
         // --- إرجاع الاستجابة JSON الموحدة لموقعك ---
         return {
-            statusCode: 200, // رمز حالة HTTP للنجاح
+            statusCode: 200, 
             headers: {
-                "Content-Type": "application/json", // تحديد نوع المحتوى كـ JSON
-                "Access-Control-Allow-Origin": "https://imoh11.github.io", // السماح لنطاق موقعك بالوصول (مهم جداً لـ CORS)
-                "Access-Control-Allow-Methods": "GET, OPTIONS", // السماح بطلبات GET و OPTIONS (لـ preflight CORS)
-                "Access-Control-Allow-Headers": "Content-Type" // السماح بنوع رأس المحتوى
+                "Content-Type": "application/json", 
+                "Access-Control-Allow-Origin": "https://imoh11.github.io", 
+                "Access-Control-Allow-Methods": "GET, OPTIONS", 
+                "Access-Control-Allow-Headers": "Content-Type" 
             },
-            body: JSON.stringify(finalCombinedData) // تحويل الكائن المجمع إلى JSON String
+            body: JSON.stringify(finalCombinedData) 
         };
 
     } catch (error) {
         console.error("خطأ كبير في وظيفة الخادم بلا خادم (الدالة الرئيسية):", error.message);
         return {
-            statusCode: 500, // خطأ داخلي في الخادم
+            statusCode: 500, 
             headers: {
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "https://imoh11.github.io", 

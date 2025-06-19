@@ -111,7 +111,7 @@ exports.handler = async function(event, context) {
         const rawCampsRecords = await fetchAllAirtableRecords("المخيمات", [{field: "اسم_المخيم", direction: "asc"}]); // <<-- تأكد من اسم الجدول في Airtable
 
         // المشرفون (فرز تصاعدي حسب الباص والمشرف)
-        const rawSupervisorsRecords = await fetchAllAirtableRecords("المشرفون", [{field: "الباص_والمشرف", direction: "asc"}]); // <<-- تأكد من اسم الجدول في Airtable
+        const rawSupervisorsRecords = await fetchAllAirtableRecords("المشرفين", [{field: "الباص_والمشرف", direction: "asc"}]); // <<-- تأكد من اسم الجدول في Airtable
 
         // أوقات التحرك (فرز تصاعدي حسب التاريخ ثم الوقت)
         // ملاحظة: الفرز النصي (alphabetical) قد لا يكون دقيقاً 100% زمنياً إذا كانت التواريخ والأوقات غير منسقة.

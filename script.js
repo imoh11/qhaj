@@ -1,5 +1,5 @@
 const COMPLAINTS_WEBHOOK_URL = 'https://hook.us2.make.com/4ij8kumta41ozellaauixdc25zm7i27k';
-const GOOGLE_SHEETS_WEB_APP_URL = 'https://eloquent-dieffenbachia-270ec9.netlify.app/.netlify/functions/get-hajj-data'; // استبدل هذا بالرابط الخاص بك!
+const GOOGLE_SHEETS_WEB_APP_URL = 'https://eloquent-dieffenbachia-270ec9.netlify.app/.netlify/functions/get-hajj-data'; // الرابط لوظيفة Netlify بلا خادم
 
 document.addEventListener('DOMContentLoaded', function() {
     const fixedNavBar = document.querySelector('.fixed-nav-bar');
@@ -54,17 +54,24 @@ document.addEventListener('DOMContentLoaded', function() {
     async function fetchAndRenderHajjData() {
         try {
             const response = await fetch(GOOGLE_SHEETS_WEB_APP_URL);
+            
+            // تحقق من أن الاستجابة OK قبل محاولة تحويلها إلى JSON
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`خطأ في جلب البيانات: ${response.status} ${response.statusText} - ${errorText}`);
+            }
+
             const data = await response.json();
-            console.log("البيانات المستلمة من الشيت:", data); // للتأكد من استلام البيانات
+            console.log("البيانات المستلمة من السيرفرلس:", data); // للتأكد من استلام البيانات
 
             // 1. تحديث قسم المكتب الرئيسي
-            if (data.office) {
+            if (data.office && Object.keys(data.office).length > 0) { // التحقق من أن الكائن ليس فارغاً
                 const officeCard = document.querySelector('#main-office .contact-list-item');
                 if (officeCard) {
-                    officeCard.querySelector('.name-label').innerHTML = `<i class="fas fa-city"></i> ${data.office.المدينة}`;
-                    officeCard.querySelector('.contact-action-btn.call').href = `tel:${data.office.هاتف_المكتب}`;
-                    officeCard.querySelector('.contact-action-btn.whatsapp').href = data.office.واتساب_المكتب;
-                    officeCard.querySelector('.contact-action-btn.location').href = data.office.رابط_الموقع;
+                    officeCard.querySelector('.name-label').innerHTML = `<i class="fas fa-city"></i> ${data.office.المدينة || 'غير متاح'}`;
+                    officeCard.querySelector('.contact-action-btn.call').href = `tel:${data.office.هاتف_المكتب || ''}`;
+                    officeCard.querySelector('.contact-action-btn.whatsapp').href = data.office.واتساب_المكتب || '';
+                    officeCard.querySelector('.contact-action-btn.location').href = data.office.رابط_الموقع || '';
                 }
             }
 
@@ -75,11 +82,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 data.gatherings.forEach(item => {
                     const listItem = `
                         <li class="contact-list-item">
-                            <span class="name-label"><i class="fas fa-bus-alt"></i> ${item.اسم_التجمع}</span>
+                            <span class="name-label"><i class="fas fa-bus-alt"></i> ${item.اسم_التجمع || 'غير متاح'}</span>
                             <div class="contact-actions">
-                                <a class="contact-action-btn call" href="tel:${item.هاتف_التجمع}"><i class="fas fa-phone"></i></a>
-                                <a class="contact-action-btn whatsapp" href="${item.واتساب_التجمع}" target="_blank"><i class="fab fa-whatsapp"></i></a>
-                                <a class="contact-action-btn location" href="${item.رابط_الموقع}" target="_blank"><i class="fas fa-map-marker-alt"></i></a>
+                                <a class="contact-action-btn call" href="tel:${item.هاتف_التجمع || ''}"><i class="fas fa-phone"></i></a>
+                                <a class="contact-action-btn whatsapp" href="${item.واتساب_التجمع || ''}" target="_blank"><i class="fab fa-whatsapp"></i></a>
+                                <a class="contact-action-btn location" href="${item.رابط_الموقع || ''}" target="_blank"><i class="fas fa-map-marker-alt"></i></a>
                             </div>
                         </li>
                     `;
@@ -90,15 +97,15 @@ document.addEventListener('DOMContentLoaded', function() {
             // 3. تحديث قسم المخيمات
             if (data.camps && data.camps.length > 0) {
                 const campsList = document.querySelector('#camps .contact-list');
-                campsList.innerHTML = '';
+                campsList.innerHTML = ''; // تفريغ القائمة الحالية
                 data.camps.forEach(item => {
                     const listItem = `
                         <li class="contact-list-item">
-                            <span class="name-label"><i class="fas fa-bed"></i> ${item.اسم_المخيم}</span>
+                            <span class="name-label"><i class="fas fa-bed"></i> ${item.اسم_المخيم || 'غير متاح'}</span>
                             <div class="contact-actions">
-                                <a class="contact-action-btn call" href="tel:${item.هاتف_المخيم}"><i class="fas fa-phone"></i></a>
-                                <a class="contact-action-btn whatsapp" href="${item.واتساب_المخيم}" target="_blank"><i class="fab fa-whatsapp"></i></a>
-                                <a class="contact-action-btn location" href="${item.رابط_الموقع}" target="_blank"><i class="fas fa-map-marker-alt"></i></a>
+                                <a class="contact-action-btn call" href="tel:${item.هاتف_المخيم || ''}"><i class="fas fa-phone"></i></a>
+                                <a class="contact-action-btn whatsapp" href="${item.واتساب_المخيم || ''}" target="_blank"><i class="fab fa-whatsapp"></i></a>
+                                <a class="contact-action-btn location" href="${item.رابط_الموقع || ''}" target="_blank"><i class="fas fa-map-marker-alt"></i></a>
                             </div>
                         </li>
                     `;
@@ -109,14 +116,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // 4. تحديث قسم المشرفين
             if (data.supervisors && data.supervisors.length > 0) {
                 const supervisorsList = document.querySelector('#supervisors .contact-list');
-                supervisorsList.innerHTML = '';
+                supervisorsList.innerHTML = ''; // تفريغ القائمة الحالية
                 data.supervisors.forEach(item => {
                     const listItem = `
                         <li class="contact-list-item">
-                            <span class="name-label"><i class="fas fa-bus"></i> ${item.الباص_والمشرف}</span>
+                            <span class="name-label"><i class="fas fa-bus"></i> ${item.الباص_والمشرف || 'غير متاح'}</span>
                             <div class="contact-actions">
-                                <a class="contact-action-btn call" href="tel:${item.هاتف_المشرف}"><i class="fas fa-phone"></i></a>
-                                <a class="contact-action-btn whatsapp" href="${item.واتساب_المشرف}" target="_blank"><i class="fab fa-whatsapp"></i></a>
+                                <a class="contact-action-btn call" href="tel:${item.هاتف_المشرف || ''}"><i class="fas fa-phone"></i></a>
+                                <a class="contact-action-btn whatsapp" href="${item.واتساب_المشرف || ''}" target="_blank"><i class="fab fa-whatsapp"></i></a>
                             </div>
                         </li>
                     `;
@@ -127,22 +134,22 @@ document.addEventListener('DOMContentLoaded', function() {
             // 5. تحديث قسم أوقات التحرك والتفويج
             if (data.movementTimes && data.movementTimes.length > 0) {
                 const movementTimesCard = document.querySelector('#movement-times');
-                const movementTimesContainer = movementTimesCard.querySelector('.info-card-title').nextElementSibling; // الحاوية بعد العنوان
-                movementTimesContainer.innerHTML = ''; // تفريغ المحتوى القديم
+                const movementTimesContainer = movementTimesCard.querySelector('.info-card-title').nextElementSibling;
+                movementTimesContainer.innerHTML = '';
                 data.movementTimes.forEach(item => {
                     const pathItem = `
                         <div class="path-item">
                             <div class="path-route">
-                                <i class="fas fa-bus place-icon"></i> <span>${item.من_المكان}</span>
+                                <i class="fas fa-bus place-icon"></i> <span>${item.من_المكان || 'غير متاح'}</span>
                                 <i class="fas fa-arrow-left arrow-icon arrow-green"></i>
-                                <span>${item.إلى_المكان}</span> <i class="fas fa-mosque place-icon"></i>
+                                <span>${item.إلى_المكان || 'غير متاح'}</span> <i class="fas fa-mosque place-icon"></i>
                             </div>
                             <div class="path-details">
                                 <span class="path-detail-item-info date-info">
-                                    <i class="fas fa-calendar-alt"></i> <span>التاريخ:</span> ${item.تاريخ_التحرك}
+                                    <i class="fas fa-calendar-alt"></i> <span>التاريخ:</span> ${item.تاريخ_التحرك || 'غير متاح'}
                                 </span>
                                 <span class="path-detail-item-info time-info">
-                                    <i class="fas fa-clock"></i> <span>الوقت:</span> ${item.وقت_التحرك}
+                                    <i class="fas fa-clock"></i> <span>الوقت:</span> ${item.وقت_التحرك || 'غير متاح'}
                                 </span>
                             </div>
                         </div>
@@ -151,29 +158,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
 
-
             // 6. تحديث قسم مسارات التنقل بين المشاعر
             if (data.movementPaths && data.movementPaths.length > 0) {
                 const movementPathsCard = document.querySelector('#movement-paths');
-                const movementPathsContainer = movementPathsCard.querySelector('.info-card-title').nextElementSibling; // الحاوية بعد العنوان
-                movementPathsContainer.innerHTML = ''; // تفريغ المحتوى القديم
+                const movementPathsContainer = movementPathsCard.querySelector('.info-card-title').nextElementSibling;
+                movementPathsContainer.innerHTML = '';
                 data.movementPaths.forEach(item => {
                     const pathItem = `
                         <div class="path-item">
                             <div class="path-route">
-                                <i class="fas fa-campground place-icon"></i> <span>${item.من_المكان}</span>
+                                <i class="fas fa-campground place-icon"></i> <span>${item.من_المكان || 'غير متاح'}</span>
                                 <i class="fas fa-arrow-left arrow-icon arrow-${item.نوع_المسار === 'أحمر' ? 'red' : 'green'}"></i>
-                                <span>${item.إلى_المكان}</span> <i class="fas fa-train place-icon"></i>
+                                <span>${item.إلى_المكان || 'غير متاح'}</span> <i class="fas fa-train place-icon"></i>
                             </div>
                             <div class="path-details">
                                 <span class="path-detail-item-info location-link">
-                                    <a href="${item.رابط_الخريطة}" target="_blank"><i class="fas fa-map-marker-alt"></i> <span>طول المسار:</span> ${item.طول_المسار}</a>
+                                    <a href="${item.رابط_الخريطة || ''}" target="_blank"><i class="fas fa-map-marker-alt"></i> <span>طول المسار:</span> ${item.طول_المسار || 'غير متاح'}</a>
                                 </span>
                                 <span class="path-detail-item-info time-info">
-                                    <a href="${item.رابط_الخريطة}" target="_blank"><i class="fas fa-clock"></i> <span>الوقت المتوقع:</span> ${item.الوقت_المتوقع}</a>
+                                    <a href="${item.رابط_الخريطة || ''}" target="_blank"><i class="fas fa-clock"></i> <span>الوقت المتوقع:</span> ${item.الوقت_المتوقع || 'غير متاح'}</a>
                                 </span>
                             </div>
-                            <a class="path-status-badge ${item.نوع_المسار === 'أحمر' ? 'red-status' : 'green-status'}" href="${item.رابط_الخريطة}" target="_blank" style="text-decoration: none;">المسار ${item.نوع_المسار}: الذهاب ل${item.إلى_المكان}</a>
+                            <a class="path-status-badge ${item.نوع_المسار === 'أحمر' ? 'red-status' : 'green-status'}" href="${item.رابط_الخريطة || ''}" target="_blank" style="text-decoration: none;">المسار ${item.نوع_المسار || 'غير متاح'}: الذهاب ل${item.إلى_المكان || 'غير متاح'}</a>
                         </div>
                     `;
                     movementPathsContainer.insertAdjacentHTML('beforeend', pathItem);
@@ -184,13 +190,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.meals && data.meals.length > 0) {
                 const mealsTableBody = document.querySelector('#meals .meals-table tbody');
                 if (mealsTableBody) {
-                    mealsTableBody.innerHTML = ''; // تفريغ المحتوى القديم
-
+                    mealsTableBody.innerHTML = '';
                     data.meals.forEach(item => {
                         const row = `
                             <tr>
-                                <td><i class="fas fa-utensils"></i> ${item.اسم_الوجبة}</td>
-                                <td><i class="fas fa-clock"></i> ${item.وقت_الوجبة_كامل}</td>
+                                <td><i class="fas fa-utensils"></i> ${item.اسم_الوجبة || 'غير متاح'}</td>
+                                <td><i class="fas fa-clock"></i> ${item.وقت_الوجبة_كامل || 'غير متاح'}</td>
                             </tr>
                         `;
                         mealsTableBody.insertAdjacentHTML('beforeend', row);
@@ -198,9 +203,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-
         } catch (error) {
             console.error('حدث خطأ أثناء جلب أو عرض البيانات:', error);
+            // يمكنك هنا عرض رسالة خطأ للمستخدم على الواجهة الأمامية
         }
     }
 

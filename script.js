@@ -1,5 +1,5 @@
 const COMPLAINTS_WEBHOOK_URL = 'https://hook.us2.make.com/4ij8kumta41ozellaauixdc25zm7i27k';
-const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzccNXsou7RHBNESsiEvz2nUXhoLvfzmOgFGby-iirk3_zBztsNK8lSgHT_HLF03yklzQ/exec'; // استبدل هذا بالرابط الخاص بك!
+const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzVtFf37mS0UOKELQpsF_YOsMgs1yTwaGXvnqakhYFpDEcCGf2Nenzk_fbPXU3Xus5xvw/exec'; // استبدل هذا بالرابط الخاص بك!
 
 document.addEventListener('DOMContentLoaded', function() {
     const fixedNavBar = document.querySelector('.fixed-nav-bar');

@@ -17,11 +17,20 @@ if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
 const AIRTABLE_BASE_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/`;
 
 /**
- * دالة مساعدة لجلب جميع السجلات من جدول Airtable معين، مع معالجة pagination (النتائج المقسمة لصفحات).
+ * دالة مساعدة لجلب جميع السجلات من جدول Airtable معين، مع معالجة pagination والفرز.
  * @param {string} tableName - اسم الجدول في Airtable (مثل "المكتب", "التجمعات").
- * @returns {Promise<Array<Object>>} مصفوفة من كائنات الحقول (records.fields) لكل سجل.
+ * @param {Array<Object>} [sortOptions=[]] - مصفوفة من كائنات الفرز، مثل: [{field: "اسم_العمود", direction: "asc"|"desc"}].
+ * @returns {Promise<Array<Object>>} مصفوفة من كائنات الحقول (records.fields).
  */
-async function fetchAllAirtableRecords(tableName) {
+async function fetchAllAirtableRecords(tableName, sortOptions = []) {
+    let queryParams = [];
+
+    // إضافة خيارات الفرز إلى queryParams
+    sortOptions.forEach((sort, index) => {
+        queryParams.push(`sort[${index}][field]=${encodeURIComponent(sort.field)}`);
+        queryParams.push(`sort[${index}][direction]=${encodeURIComponent(sort.direction)}`);
+    });
+
     const url = `${AIRTABLE_BASE_URL}${encodeURIComponent(tableName)}`;
     const headers = {
         'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
@@ -29,18 +38,22 @@ async function fetchAllAirtableRecords(tableName) {
     };
 
     let allRecords = [];
-    let offset = null; // لمعالجة pagination في Airtable API
+    let offset = null; // لمعالجة الصفحات (pagination) في Airtable API
 
     do {
         let paginatedUrl = url;
+        let currentQueryParams = [...queryParams]; // ننسخ queryParams حتى لا نؤثر على التكرارات
         if (offset) {
-            paginatedUrl += `?offset=${offset}`;
+            currentQueryParams.push(`offset=${offset}`);
+        }
+
+        if (currentQueryParams.length > 0) {
+            paginatedUrl += `?${currentQueryParams.join('&')}`; // هنا يتم إضافة Query Params
         }
         
         try {
             const response = await fetch(paginatedUrl, { headers });
             if (!response.ok) {
-                // إذا لم تكن الاستجابة 200 OK، ألقِ خطأ مع تفاصيل
                 const errorBody = await response.text();
                 throw new Error(`خطأ في Airtable API للجدول ${tableName}: الحالة ${response.status} - ${response.statusText}. الاستجابة: ${errorBody}`);
             }
@@ -61,7 +74,7 @@ async function fetchAllAirtableRecords(tableName) {
  * تُنفذ عند تلقي طلب HTTP GET من الواجهة الأمامية.
  * @param {Object} event - كائن الحدث الذي يحتوي على معلومات طلب HTTP.
  * @param {Object} context - كائن السياق (لا يُستخدم كثيراً في هذا السيناريو البسيط).
- * @returns {Promise<Object>} كائن استجابة HTTP، يحتوي على بيانات JSON.
+ * @returns {Promise<Object>} كائن استجابة HTTP.
  */
 exports.handler = async function(event, context) {
     // التأكد من أن الطلب هو GET (وظائف بلا خادم يمكنها دعم طرق HTTP مختلفة)
@@ -71,6 +84,7 @@ exports.handler = async function(event, context) {
 
     // تحقق أساسي من متغيرات البيئة قبل محاولة الاتصال بـ Airtable
     if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+        console.error("متغيرات بيئة Airtable غير مهيأة بشكل صحيح.");
         return {
             statusCode: 500, // خطأ داخلي في الخادم
             headers: {
@@ -86,10 +100,42 @@ exports.handler = async function(event, context) {
     try {
         const finalCombinedData = {}; // هذا الكائن سيحتوي على جميع البيانات المدمجة للواجهة الأمامية
 
-        // --- 1. جلب بيانات المكتب (يتوقع كائن واحد، عادة الصف الأول) ---
-        const officeRecords = await fetchAllAirtableRecords("المكتب"); // <<-- تأكد من اسم الجدول في Airtable
-        if (officeRecords.length > 0) {
-            const officeFields = officeRecords[0]; // نأخذ أول سجل (fields object)
+        // --- جلب البيانات الخام من Airtable لكل قسم (مع الفرز) ---
+        // المكتب (لا يوجد فرز، كائن واحد)
+        const rawOfficeRecords = await fetchAllAirtableRecords("المكتب"); // <<-- تأكد من اسم الجدول في Airtable
+
+        // التجمعات (فرز تصاعدي حسب اسم التجمع)
+        const rawGatheringsRecords = await fetchAllAirtableRecords("التجمعات", [{field: "اسم_التجمع", direction: "asc"}]); // <<-- تأكد من اسم الجدول في Airtable
+
+        // المخيمات (فرز تصاعدي حسب اسم المخيم)
+        const rawCampsRecords = await fetchAllAirtableRecords("المخيمات", [{field: "اسم_المخيم", direction: "asc"}]); // <<-- تأكد من اسم الجدول في Airtable
+
+        // المشرفون (فرز تصاعدي حسب الباص والمشرف)
+        const rawSupervisorsRecords = await fetchAllAirtableRecords("المشرفون", [{field: "الباص_والمشرف", direction: "asc"}]); // <<-- تأكد من اسم الجدول في Airtable
+
+        // أوقات التحرك (فرز تصاعدي حسب التاريخ ثم الوقت)
+        // ملاحظة: الفرز النصي (alphabetical) قد لا يكون دقيقاً 100% زمنياً إذا كانت التواريخ والأوقات غير منسقة.
+        // يفضل استخدام حقول Airtable من نوع Date/Time للفرز الزمني الدقيق.
+        const rawMovementTimesRecords = await fetchAllAirtableRecords("أوقات التحرك", [
+            {field: "تاريخ_التحرك", direction: "asc"}, 
+            {field: "وقت_التحرك", direction: "asc"}
+        ]); // <<-- تأكد من اسم الجدول في Airtable
+
+        // مسارات التنقل (فرز تصاعدي حسب من المكان إلى المكان)
+        const rawMovementPathsRecords = await fetchAllAirtableRecords("مسارات التنقل", [
+            {field: "من_المكان_مسار", direction: "asc"}, 
+            {field: "إلى_المكان_مسار", direction: "asc"}
+        ]); // <<-- تأكد من اسم الجدول في Airtable
+
+        // الوجبات (فرز تصاعدي حسب اسم الوجبة)
+        const rawMealsRecords = await fetchAllAirtableRecords("الوجبات", [{field: "اسم_الوجبة", direction: "asc"}]); // <<-- تأكد من اسم الجدول في Airtable
+
+
+        // --- معالجة وتشكيل البيانات المجمعة ---
+
+        // 1. معالجة بيانات المكتب (كائن واحد)
+        if (rawOfficeRecords.length > 0) {
+            const officeFields = rawOfficeRecords[0]; // نأخذ أول سجل (fields object)
             finalCombinedData.office = {
                 "المدينة": officeFields["المدينة"] || null, // استخدم || null لمعالجة القيم الفارغة بشكل آمن
                 "رابط_الموقع": officeFields["رابط_الموقع_مكتب"] || null, // تحويل الاسم: Airtable's رابط_الموقع_مكتب -> Frontend's رابط_الموقع
@@ -100,10 +146,9 @@ exports.handler = async function(event, context) {
             finalCombinedData.office = {}; // لضمان وجود المفتاح ككائن فارغ حتى لو كان الجدول فارغاً
         }
 
-        // --- 2. جلب باقي الأقسام (كل منها يتوقع مصفوفة من الكائنات) ---
+        // 2. معالجة وتشكيل بيانات الأقسام الأخرى (تتوقع مصفوفة من الكائنات)
         const sectionsConfig = {
             "gatherings": { 
-                tableName: "التجمعات", // <<-- تأكد من اسم الجدول في Airtable
                 fieldMap: { // خريطة لتحويل أسماء حقول Airtable إلى المفاتيح المتوقعة في الواجهة الأمامية
                     "اسم_التجمع": "اسم_التجمع",
                     "رابط_الموقع_تجمع": "رابط_الموقع", // تحويل الاسم
@@ -112,7 +157,6 @@ exports.handler = async function(event, context) {
                 }
             },
             "camps": { 
-                tableName: "المخيمات", // <<-- تأكد من اسم الجدول في Airtable
                 fieldMap: {
                     "اسم_المخيم": "اسم_المخيم",
                     "رابط_الموقع_مخيم": "رابط_الموقع", // تحويل الاسم
@@ -121,7 +165,6 @@ exports.handler = async function(event, context) {
                 }
             },
             "supervisors": { 
-                tableName: "المشرفين", // <<-- تأكد من اسم الجدول في Airtable (المشرفين أو المشرفين)
                 fieldMap: {
                     "الباص_والمشرف": "الباص_والمشرف",
                     "هاتف_المشرف": "هاتف_المشرف",
@@ -129,7 +172,6 @@ exports.handler = async function(event, context) {
                 }
             },
             "movementTimes": { 
-                tableName: "أوقات التحرك", // <<-- تأكد من اسم الجدول في Airtable
                 fieldMap: {
                     "من_المكان_تحرك": "من_المكان", // تحويل الاسم
                     "إلى_المكان_تحرك": "إلى_المكان", // تحويل الاسم
@@ -138,7 +180,6 @@ exports.handler = async function(event, context) {
                 }
             },
             "movementPaths": { 
-                tableName: "مسارات التنقل", // <<-- تأكد من اسم الجدول في Airtable
                 fieldMap: {
                     "من_المكان_مسار": "من_المكان", // تحويل الاسم
                     "إلى_المكان_مسار": "إلى_المكان", // تحويل الاسم
@@ -149,7 +190,6 @@ exports.handler = async function(event, context) {
                 }
             },
             "meals": { 
-                tableName: "الوجبات", // <<-- تأكد من اسم الجدول في Airtable
                 fieldMap: {
                     "اسم_الوجبة": "اسم_الوجبة",
                     "وقت_الوجبة_كامل": "وقت_الوجبة_كامل"
@@ -157,12 +197,23 @@ exports.handler = async function(event, context) {
             }
         };
 
+        // الربط بين البيانات الخام التي تم جلبها وقائمة الأقسام للمعالجة
+        const rawDataMap = {
+            "gatherings": rawGatheringsRecords,
+            "camps": rawCampsRecords,
+            "supervisors": rawSupervisorsRecords,
+            "movementTimes": rawMovementTimesRecords,
+            "movementPaths": rawMovementPathsRecords,
+            "meals": rawMealsRecords
+        };
+
+
         for (const sectionKey in sectionsConfig) {
             if (sectionsConfig.hasOwnProperty(sectionKey)) {
                 const config = sectionsConfig[sectionKey];
-                const records = await fetchAllAirtableRecords(config.tableName);
-                
-                const transformedRecords = records.map(record => {
+                const recordsToProcess = rawDataMap[sectionKey]; // جلب السجلات الخام لهذا القسم
+
+                const transformedRecords = recordsToProcess.map(record => {
                     const newRecord = {};
                     for (const airtableField in config.fieldMap) {
                         const frontendKey = config.fieldMap[airtableField];
@@ -171,7 +222,7 @@ exports.handler = async function(event, context) {
                     }
                     return newRecord;
                 }).filter(record => {
-                    // إزالة السجلات التي جميع قيمها فارغة أو null أو غير معرفة
+                    // إزالة السجلات التي جميع قيمها فارغة أو null أو غير معرفة (لتنظيف البيانات)
                     return Object.values(record).some(val => val !== null && val !== '' && val !== undefined);
                 });
 
@@ -184,9 +235,8 @@ exports.handler = async function(event, context) {
             statusCode: 200, // رمز حالة HTTP للنجاح
             headers: {
                 "Content-Type": "application/json", // تحديد نوع المحتوى كـ JSON
-                // هذا الرأس يحل مشكلة CORS. يجب أن يكون نطاق موقعك بالضبط.
-                "Access-Control-Allow-Origin": "https://imoh11.github.io", 
-                "Access-Control-Allow-Methods": "GET, OPTIONS", // السماح بطلبات GET و OPTIONS
+                "Access-Control-Allow-Origin": "https://imoh11.github.io", // السماح لنطاق موقعك بالوصول (مهم جداً لـ CORS)
+                "Access-Control-Allow-Methods": "GET, OPTIONS", // السماح بطلبات GET و OPTIONS (لـ preflight CORS)
                 "Access-Control-Allow-Headers": "Content-Type" // السماح بنوع رأس المحتوى
             },
             body: JSON.stringify(finalCombinedData) // تحويل الكائن المجمع إلى JSON String

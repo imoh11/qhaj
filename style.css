@@ -29,7 +29,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    font-size: 15px; /* تم تصغير حجم الخط الأساسي هنا (من 16px إلى 15px) */
+    **font-size: 16px;** /* Increased base font size slightly */
     box-sizing: border-box;
     padding-top: 100px; /* تم إعادة padding-top لاستيعاب شريط التنقل الثابت */
     overflow-x: hidden;
@@ -83,7 +83,7 @@ body {
     align-items: center;
     text-decoration: none;
     color: #4A3C32;
-    font-size: 0.85em; /* تم تصغير حجم خط نص الروابط */
+    **font-size: 0.9em;** /* Increased navigation link text size */
     font-weight: 500;
     transition: color 0.3s ease, transform 0.2s ease;
     text-align: center;
@@ -92,7 +92,7 @@ body {
 }
 
 .nav-link i {
-    font-size: 1.3em; /* تم تصغير حجم أيقونة الاختصار */
+    **font-size: 1.5em;** /* Increased shortcut icon size */
     margin-bottom: 8px;
     color: #4A3C32;
     transition: color 0.3s ease;
@@ -234,14 +234,14 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 45px;
-    height: 45px;
+    **width: 48px;** /* Increased from 45px */
+    **height: 48px;** /* Increased from 45px */
     border-radius: 50%;
     background-color: var(--bg-body);
     color: var(--text-dark);
     text-decoration: none;
     transition: all 0.3s ease;
-    font-size: 1em;
+    **font-size: 1.1em;** /* Increased from 1em */
     flex-shrink: 0;
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
@@ -587,7 +587,7 @@ footer {
     padding: 25px;
     margin-top: 50px;
     color: var(--text-light);
-    font-size: 13px;
+    **font-size: 14px;** /* Increased footer font size slightly */
     border-top: 1px solid var(--border-color);
     width: 100%;
     max-width: 550px;
@@ -610,7 +610,7 @@ footer a:hover {
 /* Responsive Adjustments */
 @media (max-width: 768px) {
     body {
-        font-size: 15px; /* Increased from 14px */
+        **font-size: 15px;** /* Increased from 14px for better readability */
         padding-top: 90px;
     }
     .fixed-nav-bar {
@@ -621,11 +621,11 @@ footer a:hover {
         gap: 20px;
     }
     .nav-link i {
-        font-size: 1.5em; /* Increased from 1.3em */
+        **font-size: 1.6em;** /* Increased from 1.3em for larger icons */
         margin-bottom: 6px;
     }
     .nav-link {
-        font-size: 0.9em; /* Increased from 0.8em */
+        **font-size: 0.95em;** /* Increased from 0.8em for larger text */
     }
     .main-content-grid {
         max-width: 450px;
@@ -657,9 +657,9 @@ footer a:hover {
         gap: 10px;
     }
     .contact-action-btn {
-        width: 46px; /* Increased from 42px */
-        height: 46px; /* Increased from 42px */
-        font-size: 1.1em; /* Increased from 1em */
+        **width: 50px;** /* Increased for larger buttons */
+        **height: 50px;** /* Increased for larger buttons */
+        **font-size: 1.2em;** /* Increased for larger icons inside buttons */
     }
     .path-section .path-item {
         padding: 16px;
@@ -724,7 +724,7 @@ footer a:hover {
         margin-top: 15px;
     }
     footer {
-        font-size: 12px;
+        font-size: 13px; /* Increased from 12px */
         max-width: 450px;
         padding: 20px;
         margin-top: 40px;
@@ -733,7 +733,7 @@ footer a:hover {
 
 @media (max-width: 480px) {
     body {
-        font-size: 14px; /* Increased from 13px */
+        **font-size: 14px;** /* Increased from 13px for better readability */
         padding-top: 80px;
     }
     .fixed-nav-bar {
@@ -744,11 +744,11 @@ footer a:hover {
         gap: 15px;
     }
     .nav-link i {
-        font-size: 1.3em; /* Increased from 1.1em */
+        **font-size: 1.4em;** /* Increased from 1.1em for larger icons */
         margin-bottom: 5px;
     }
     .nav-link {
-        font-size: 0.8em; /* Increased from 0.75em */
+        **font-size: 0.85em;** /* Increased from 0.75em for larger text */
     }
     .main-content-grid {
         max-width: 370px;
@@ -780,9 +780,9 @@ footer a:hover {
         gap: 8px;
     }
     .contact-action-btn {
-        width: 42px; /* Increased from 38px */
-        height: 42px; /* Increased from 38px */
-        font-size: 1em; /* Increased from 0.9em */
+        **width: 45px;** /* Increased for larger buttons */
+        **height: 45px;** /* Increased for larger buttons */
+        **font-size: 1.1em;** /* Increased for larger icons inside buttons */
     }
     .path-section .path-item {
         padding: 12px;
@@ -847,7 +847,7 @@ footer a:hover {
         margin-top: 12px;
     }
     footer {
-        font-size: 11px;
+        font-size: 12px; /* Increased from 11px */
         max-width: 370px;
         padding: 18px;
         margin-top: 30px;

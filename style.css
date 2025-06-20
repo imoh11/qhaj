@@ -92,7 +92,7 @@ body {
 }
 
 .nav-link i {
-    font-size: 1.3em; /* تم تصغير حجم أيقونة الاختصار */
+    font-size: 1.7em; /* تم تصغير حجم أيقونة الاختصار */
     margin-bottom: 8px;
     color: #4A3C32;
     transition: color 0.3s ease;
